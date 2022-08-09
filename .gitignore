@@ -1,0 +1,5 @@
+node_modules
+DS-STORE
+build
+package-lock.json
+yarn.lock

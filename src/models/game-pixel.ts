@@ -4,7 +4,8 @@ export default class Pixel {
   skin = ' ';
   shape: number[][] = [[1]];
 
-  draw() {
+  constructor() {}
+  draw(): string[][] {
     const shape: string[][] = this.shape.map(xPixels => {
       const print: string[] = [];
       const xLength = xPixels.length * 2;
@@ -14,10 +15,17 @@ export default class Pixel {
       }
       return print;
     });
-    return {x: this.x, y: this.y, shape};
+    return shape;
   }
 
-  rotateLeft() {}
+  clone(): Pixel {
+    const clone = new Pixel();
+    clone.x = this.x;
+    clone.y = this.y;
+    clone.skin = this.skin;
+    clone.shape = this.shape;
+    return clone;
+  }
 
-  rotateRight() {}
+  rotate(): void {}
 }

@@ -22,8 +22,7 @@ async function launch(_err: Error | null, title?: string) {
   await sleep(1000);
   spinner.success();
   await sleep(1500);
-  const engine = new TetrisEngine(titleTile);
-  engine.launch();
+  new TetrisEngine(titleTile);
 }
 
 welcome();

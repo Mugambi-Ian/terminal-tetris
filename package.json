@@ -16,7 +16,6 @@
     "moveGraphics": "copyfiles -f ./src/**/*.tetris \"build\"",
     "build": "mkdir build",
     "prebuild": "npx rimraf build",
-    "postbuild": "npm run moveGraphics",
     "dev": "run-s build watch",
     "watch": "tsc-watch --noClear -p ./tsconfig.json --onSuccess \"node ./build/index.js\"",
     "clean": "gts clean",

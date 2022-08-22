@@ -1,4 +1,5 @@
-import Pixel from '../models/game-pixel.js';
+/* eslint-disable no-process-exit */
+import Pixel from '../models/tetris-pixel.js';
 import {
   bingo,
   NEW_LINE,
@@ -9,23 +10,26 @@ import {
   ROWS,
   GAME_CLOCK,
   COLS,
+  initializeGameGrid,
 } from '../constants/index.js';
 import chalk from 'chalk';
 import {clear as refresh, log as print} from 'console';
 import readline from 'readline';
 
 export default class TetrisEngine {
+  score = 0;
   active?: Pixel;
   titleTile = '';
-  playTetris = setInterval(this.renderFrames.bind(this), GAME_CLOCK * 2);
+  nextPiece = bingo();
+  playTetris?: NodeJS.Timeout;
 
   constructor(titleTile = '') {
     this.inputListener();
     this.titleTile = titleTile;
+    this.playTetris = setInterval(this.renderFrames.bind(this), GAME_CLOCK);
   }
 
   async inputListener() {
-    this.active = bingo();
     process.stdin.setRawMode(true);
     readline.emitKeypressEvents(process.stdin);
     process.stdin.on('keypress', this.keypress.bind(this));
@@ -34,11 +38,18 @@ export default class TetrisEngine {
   keypress(_str: string, key: {ctrl: string; name: string}) {
     try {
       if (key.ctrl && key.name === 'c') {
-        throw new Error();
+        if (this.playTetris) this.pauseGame();
+        else process.kill(process.pid, 'SIGTERM');
       } else {
         switch (key.name) {
           case 'left':
             this.nextFrame({left: true});
+            break;
+        }
+        switch (key.name) {
+          case 'escape':
+            if (this.playTetris) this.pauseGame();
+            else process.kill(process.pid, 'SIGTERM');
             break;
         }
         switch (key.name) {
@@ -53,7 +64,12 @@ export default class TetrisEngine {
         }
         switch (key.name) {
           case 'space':
-            this.nextFrame({rotate: true});
+            if (this.playTetris) this.nextFrame({rotate: true});
+            else
+              this.playTetris = setInterval(
+                this.renderFrames.bind(this),
+                GAME_CLOCK
+              );
             break;
         }
         switch (key.name) {
@@ -63,7 +79,7 @@ export default class TetrisEngine {
         }
       }
     } catch (error) {
-      print('Bye');
+      print('');
     }
   }
 
@@ -83,7 +99,8 @@ export default class TetrisEngine {
     rotate?: boolean;
   }) {
     if (params?.new) {
-      this.active = bingo();
+      this.active = this.nextPiece;
+      this.nextPiece = bingo();
     }
     const active = this.active?.clone();
     if (params?.rotate) active?.rotate();
@@ -103,6 +120,8 @@ export default class TetrisEngine {
       this.active = active;
       this.generateFrame();
     }
+    this.checkScore();
+    this.checkGameOver();
   }
 
   private detectCollision(activeShape: Pixel) {
@@ -114,7 +133,6 @@ export default class TetrisEngine {
       if (xRows)
         for (let xVal = 0; xVal < xRows.length; xVal++) {
           const cell = xRows[xVal];
-          console.log(xVal);
           if (cell !== ' ')
             if (y + yVal >= ROWS) {
               return true;
@@ -123,7 +141,6 @@ export default class TetrisEngine {
               if (x + xVal >= COLS) {
                 return true;
               } else if (gridValue !== ' ') {
-                console.log(y + yVal, x + xVal);
                 return true;
               }
             }
@@ -132,7 +149,7 @@ export default class TetrisEngine {
     return false;
   }
 
-  generateFrame(params?: {cache?: boolean; active?: Pixel}) {
+  private generateFrame(params?: {cache?: boolean; active?: Pixel}) {
     const active = params?.active || this.active;
     const x = active!.x;
     const y = active!.y;
@@ -153,24 +170,78 @@ export default class TetrisEngine {
     this.printFrame(grid, params?.cache);
   }
 
-  printFrame(gridC: string[][], cache?: boolean) {
+  private checkScore() {
+    const score: number[] = [];
+    let grid = makeUnique(getGridContent());
+    grid.forEach((row, i) => {
+      if (i !== grid.length - 1 && !row.join('').includes(' ')) {
+        score.push(i);
+      }
+    });
+    if (score.length !== 0) {
+      this.score += score.length * score.length;
+      score.forEach(row => {
+        const add = new Array(COLS);
+        add.fill(' ');
+        add.push('-');
+        grid.splice(row, 1);
+        grid = [add].concat(grid);
+      });
+      this.printFrame(grid, true);
+    }
+  }
+
+  private getScore() {
+    const score = String(this.score).padStart(9, '0');
+    return score.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  private checkGameOver() {
+    if (
+      this.detectCollision(this.active!) &&
+      this.detectCollision(this.nextPiece)
+    ) {
+      refresh();
+      clearInterval(this.playTetris);
+      setGridContent(initializeGameGrid());
+      this.playTetris = undefined;
+      const game = `${this.titleTile}${NEW_LINE} Game Over. Press SPACE to restart or ESC to quit?`;
+      print(game);
+    }
+  }
+  private pauseGame() {
+    refresh();
+    clearInterval(this.playTetris);
+    this.playTetris = undefined;
+    const game = `${this.titleTile}${NEW_LINE} Game Paused. Press SPACE to continue or CTRL + C to quit?`;
+    print(game);
+  }
+
+  private printFrame(gridC: string[][], cache?: boolean) {
     refresh();
     if (cache) setGridContent(gridC);
-    const gridContent = gridC.map(
-      (a, i) =>
-        `--${a.join('')}-${i + 1 !== gridC.length && '                    --'}`
-    );
+    const gridContent = gridC.map((a, i) => {
+      const pivot = Math.floor(gridC.length / 2);
+      let row = `--${a.join('')}-`;
+      if (i === pivot - 10) {
+        row += `      ${chalk.blue('INCOMING')}      --`;
+      } else if (i === pivot - 1) {
+        row += `       ${chalk.blue('SCORE')}        --`;
+      } else if (i === pivot + 1) {
+        row += `     ${this.getScore()}    --`;
+      } else if (i === pivot + 5) {
+        row += `     ${chalk.blue('HIGH SCORE')}     --`;
+      } else if (i === pivot + 7) {
+        row += `     ${this.getScore()}    --`;
+      } else if (i + 1 !== gridC.length) {
+        row += '                    --';
+      }
+      return row;
+    });
     let game = `------------------------------------------------${NEW_LINE}`;
-    game = game + game + gridContent.join(NEW_LINE) + NEW_LINE + game;
-    game = replaceAll(game, '-', chalk.blue('#'));
-    game = replaceAll(game, 'I', chalk.red('#'));
-    game = replaceAll(game, 'L', chalk.white('#'));
-    game = replaceAll(game, 'J', chalk.green('#'));
-    game = replaceAll(game, 'O', chalk.cyan('#'));
-    game = replaceAll(game, 'S', chalk.magenta('#'));
-    game = replaceAll(game, 'T', chalk.yellow('#'));
-    game = replaceAll(game, 'Z', chalk.gray('#'));
+    game = game + gridContent.join(NEW_LINE) + NEW_LINE;
+    game = replaceAll(game, '-', chalk.bgWhite(' '));
     game = `${this.titleTile}${NEW_LINE}${game}`;
-    print(game, cache, this.active);
+    print(game);
   }
 }

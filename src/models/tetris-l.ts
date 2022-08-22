@@ -1,9 +1,10 @@
-import Pixel from './game-pixel.js';
+import chalk from 'chalk';
+import Pixel from './tetris-pixel.js';
 
 export default class LTetris extends Pixel {
   override x = -1;
   override y = -1;
-  override skin = 'L';
+  override skin = chalk.green('#');
   override shape: number[][] = [
     [1, 0],
     [1, 0],
@@ -34,6 +35,7 @@ export default class LTetris extends Pixel {
         [1, 1],
       ];
   }
+
   override clone(): LTetris {
     const clone = new LTetris();
     clone.x = this.x;

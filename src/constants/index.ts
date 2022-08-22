@@ -1,4 +1,4 @@
-import Pixel from '../models/game-pixel.js';
+import Pixel from '../models/tetris-pixel.js';
 import ITetris from '../models/tetris-i.js';
 import JTetris from '../models/tetris-j.js';
 import LTetris from '../models/tetris-l.js';
@@ -7,7 +7,7 @@ import STetris from '../models/tetris-s.js';
 import TTetris from '../models/tetris-t.js';
 import ZTetris from '../models/tetris-z.js';
 
-export const ROWS = 36;
+export const ROWS = 26;
 export const COLS = 22;
 export const NEW_LINE = '\n';
 export const SCORE_WORTH = 10;
@@ -43,12 +43,12 @@ export function initializeGameGrid() {
       if (x === COLS - 1) rows[y]![x + 1] = '-';
     }
   }
-  rows.push('--------------------------------------------'.split(''));
+  rows.push('---------------------------------------------'.split(''));
   return rows;
 }
 
 export function bingo() {
-  const pick = Math.floor(Math.random() * 6) + 1;
+  const pick = Math.floor(Math.random() * 7) + 1;
   let val = new Pixel();
   switch (pick) {
     case 1:

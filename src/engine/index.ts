@@ -11,6 +11,7 @@ import {
   GAME_CLOCK,
   COLS,
   initializeGameGrid,
+  writeSaveFile,
 } from '../constants/index.js';
 import chalk from 'chalk';
 import {clear as refresh, log as print} from 'console';
@@ -30,60 +31,42 @@ export default class TetrisEngine {
   }
 
   async inputListener() {
+    process.openStdin();
     process.stdin.setRawMode(true);
     readline.emitKeypressEvents(process.stdin);
     process.stdin.on('keypress', this.keypress.bind(this));
   }
 
   keypress(_str: string, key: {ctrl: string; name: string}) {
-    try {
-      if (key.ctrl && key.name === 'c') {
-        if (this.playTetris) this.pauseGame();
-        else process.kill(process.pid, 'SIGTERM');
-      } else {
-        switch (key.name) {
-          case 'left':
-            this.nextFrame({left: true});
-            break;
-        }
-        switch (key.name) {
-          case 'escape':
-            if (this.playTetris) this.pauseGame();
-            else process.kill(process.pid, 'SIGTERM');
-            break;
-        }
-        switch (key.name) {
-          case 'right':
-            this.nextFrame({right: true});
-            break;
-        }
-        switch (key.name) {
-          case 'down':
-            this.nextFrame({down: true});
-            break;
-        }
-        switch (key.name) {
-          case 'space':
-            if (this.playTetris) this.nextFrame({rotate: true});
-            else
-              this.playTetris = setInterval(
-                this.renderFrames.bind(this),
-                GAME_CLOCK
-              );
-            break;
-        }
-        switch (key.name) {
-          case 'up':
-            this.nextFrame({rotate: true});
-            break;
-        }
+    if (key.ctrl && key.name === 'c') {
+      if (!this.playTetris) process.exit();
+    } else if (key.name === 'escape') {
+      if (this.playTetris) this.pauseGame();
+      else {
+        this.playTetris = setInterval(this.renderFrames.bind(this), GAME_CLOCK);
       }
-    } catch (error) {
-      print('');
+    } else if (this.playTetris) {
+      switch (key.name) {
+        case 'left':
+          this.nextFrame({left: true});
+          break;
+        case 'right':
+          this.nextFrame({right: true});
+          break;
+        case 'down':
+          this.nextFrame({down: true});
+          break;
+        case 'space':
+          this.nextFrame({rotate: true});
+          break;
+        case 'up':
+          this.nextFrame({rotate: true});
+          break;
+      }
     }
   }
 
-  async renderFrames() {
+  renderFrames() {
     if (!this.active) {
       this.nextFrame({new: true});
     } else {
@@ -98,30 +81,35 @@ export default class TetrisEngine {
     right?: boolean;
     rotate?: boolean;
   }) {
-    if (params?.new) {
-      this.active = this.nextPiece;
-      this.nextPiece = bingo();
+    try {
+      if (params?.new) {
+        this.active = this.nextPiece;
+        this.nextPiece = bingo();
+      }
+      const active = this.active?.clone();
+      if (params?.rotate) active?.rotate();
+      if (params?.down) active!.y = active!.y + 1;
+      if (params?.left) active!.x = active!.x - 2 <= 0 ? 0 : active!.x - 2;
+      if (params?.right)
+        active!.x = active!.x + 2 >= COLS ? COLS : active!.x + 2;
+      const collision = this.detectCollision(active!);
+      if (collision && params?.down) {
+        active!.y = active!.y - 1;
+        this.active = undefined;
+        this.generateFrame({cache: true, active});
+      } else if (collision && params?.rotate) {
+        this.generateFrame();
+      } else if (collision) {
+        this.generateFrame();
+      } else {
+        this.active = active;
+        this.generateFrame();
+      }
+      this.checkScore();
+      this.checkGameOver();
+    } catch (error) {
+      // eslint-disable-next-line no-empty
     }
-    const active = this.active?.clone();
-    if (params?.rotate) active?.rotate();
-    if (params?.down) active!.y = active!.y + 1;
-    if (params?.left) active!.x = active!.x - 2 <= 0 ? 0 : active!.x - 2;
-    if (params?.right) active!.x = active!.x + 2 >= COLS ? COLS : active!.x + 2;
-    const collision = this.detectCollision(active!);
-    if (collision && params?.down) {
-      active!.y = active!.y - 1;
-      this.active = undefined;
-      this.generateFrame({cache: true, active});
-    } else if (collision && params?.rotate) {
-      this.generateFrame();
-    } else if (collision) {
-      this.generateFrame();
-    } else {
-      this.active = active;
-      this.generateFrame();
-    }
-    this.checkScore();
-    this.checkGameOver();
   }
 
   private detectCollision(activeShape: Pixel) {
@@ -211,9 +199,14 @@ export default class TetrisEngine {
   }
   private pauseGame() {
     refresh();
+    writeSaveFile();
     clearInterval(this.playTetris);
     this.playTetris = undefined;
-    const game = `${this.titleTile}${NEW_LINE} Game Paused. Press SPACE to continue or CTRL + C to quit?`;
+    const game = `${this.titleTile + NEW_LINE}GAME PAUSED!!!!!${
+      NEW_LINE + NEW_LINE + NEW_LINE + chalk.green('!')
+    } Press ${chalk.bgBlue(' ESC ')} to resume.${
+      NEW_LINE + chalk.green('!')
+    } Press ${chalk.bgBlue(' CTRL+C ')} twice to exit.`;
     print(game);
   }
 
@@ -241,7 +234,17 @@ export default class TetrisEngine {
     let game = `------------------------------------------------${NEW_LINE}`;
     game = game + gridContent.join(NEW_LINE) + NEW_LINE;
     game = replaceAll(game, '-', chalk.bgWhite(' '));
-    game = `${this.titleTile}${NEW_LINE}${game}`;
+    game = `${this.titleTile}${
+      NEW_LINE + chalk.green('!')
+    } Press ${chalk.bgBlue(' ESC ')} to pause.${
+      NEW_LINE + chalk.green('!')
+    } Press ${chalk.bgBlue(' UP ')} to rotate tetronome.${
+      NEW_LINE + chalk.green('!')
+    } Press ${chalk.bgBlue(' LEFT ')} ${chalk.bgBlue(
+      ' RIGHT '
+    )} or ${chalk.bgBlue(' DOWN ')} to move tetronme.${
+      NEW_LINE + NEW_LINE
+    }${game}`;
     print(game);
   }
 }

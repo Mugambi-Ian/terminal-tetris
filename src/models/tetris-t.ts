@@ -6,7 +6,7 @@ export default class TTetris extends Pixel {
   override y = -1;
   override skin = chalk.yellow('#');
   override shape: number[][] = [
-    [0, 1],
+    [0, 1, 0],
     [1, 1, 1],
   ];
 
@@ -14,7 +14,7 @@ export default class TTetris extends Pixel {
     if (this.shape.length === 3 && this.shape[0]![0] === 1)
       this.shape = [
         [1, 1, 1],
-        [0, 1],
+        [0, 1, 0],
       ];
     else if (this.shape.length === 2 && this.shape[1]![0] === 0)
       this.shape = [
@@ -24,11 +24,15 @@ export default class TTetris extends Pixel {
       ];
     else if (this.shape.length === 3 && this.shape[0]![0] === 0)
       this.shape = [
-        [0, 1],
+        [0, 1, 0],
         [1, 1, 1],
       ];
     else if (this.shape.length === 2 && this.shape[1]![0] === 1)
-      this.shape = [[1], [1, 1], [1]];
+      this.shape = [
+        [1, 0],
+        [1, 1],
+        [1, 0],
+      ];
   }
 
   override clone(): TTetris {

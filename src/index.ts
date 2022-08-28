@@ -5,12 +5,13 @@ import gradient from 'gradient-string';
 import {clear as refresh, log as print} from 'console';
 import {
   initializeGameGrid,
+  launchGame,
   NEW_LINE,
   readLine,
   readSaveFile,
-  setGridContent,
+  setGameClock,
+  setGameGridContent,
   sleep,
-  start,
 } from './constants/index.js';
 import chalk from 'chalk';
 
@@ -24,7 +25,7 @@ async function launch(_err: Error | null, title?: string) {
   await sleep(1000);
   spinner.success();
   const savedGame = readSaveFile();
-  if (savedGame) {
+  if (savedGame.saveGame && savedGame.saveGame.length !== 0) {
     refresh();
     print(`${titleTile}${NEW_LINE}${chalk.green(
       '?'
@@ -32,30 +33,28 @@ async function launch(_err: Error | null, title?: string) {
       '[1]'
     )} Yes${NEW_LINE}${chalk.blue('[2]')} No
     ${NEW_LINE}`);
-    readLine.question('Answer: ', async name => {
-      const loading =
+    readLine.question('Answer: ', name => {
+      const grid =
         name.includes('1') && !name.includes('2')
-          ? 'Resuming...'
-          : 'Starting Game';
-
-      print(NEW_LINE);
-      const spinner = createSpinner(loading).start();
-      await sleep(1000);
-      spinner.success();
-      const grid = name.includes('1') ? savedGame : initializeGameGrid();
-      setGridContent(grid);
+          ? savedGame.saveGame
+          : initializeGameGrid();
+      setGameGridContent(grid);
       readLine.close();
-      start(titleTile);
+      start(titleTile, savedGame.highScore, true);
     });
   } else {
-    setGridContent(initializeGameGrid());
-    start(titleTile);
+    setGameGridContent();
+    start(titleTile, savedGame.highScore);
   }
+}
+
+function start(titleTile: string, highScore: number, skipClockSetup?: boolean) {
+  if (!skipClockSetup)
+    setGameClock(titleTile, () => launchGame(titleTile, highScore));
+  else launchGame(titleTile, highScore);
 }
 
 try {
   refresh();
   figlet(titleTile, launch);
-} catch (error) {
-  console.log(error);
-}
+} catch (error) {}

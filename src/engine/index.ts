@@ -4,14 +4,18 @@ import {
   bingo,
   NEW_LINE,
   replaceAll,
-  setGridContent,
   makeUnique,
-  getGridContent,
   ROWS,
-  GAME_CLOCK,
   COLS,
-  initializeGameGrid,
   writeSaveFile,
+  gameGrid,
+  setGameGridContent,
+  setGameClock,
+  readLine,
+  launchGame,
+  initPlayTetris,
+  playTetris,
+  clearPlayTetris,
 } from '../constants/index.js';
 import chalk from 'chalk';
 import {clear as refresh, log as print} from 'console';
@@ -19,33 +23,39 @@ import readline from 'readline';
 
 export default class TetrisEngine {
   score = 0;
+  highScore = 0;
   active?: Pixel;
   titleTile = '';
   nextPiece = bingo();
-  playTetris?: NodeJS.Timeout;
 
-  constructor(titleTile = '') {
+  constructor(titleTile = '', highScore: number) {
     this.inputListener();
     this.titleTile = titleTile;
-    this.playTetris = setInterval(this.renderFrames.bind(this), GAME_CLOCK);
+    this.highScore = highScore;
+    initPlayTetris(this.renderFrames.bind(this));
   }
 
-  async inputListener() {
+  inputListener() {
     process.openStdin();
-    process.stdin.setRawMode(true);
-    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) process.stdin.setRawMode(true);
+    readline.emitKeypressEvents(process.stdin, readLine);
     process.stdin.on('keypress', this.keypress.bind(this));
   }
 
   keypress(_str: string, key: {ctrl: string; name: string}) {
-    if (key.ctrl && key.name === 'c') {
-      if (!this.playTetris) process.exit();
-    } else if (key.name === 'escape') {
-      if (this.playTetris) this.pauseGame();
+    if (key.name === 'escape') {
+      if (playTetris) this.pauseGame();
       else {
-        this.playTetris = setInterval(this.renderFrames.bind(this), GAME_CLOCK);
+        initPlayTetris(this.renderFrames.bind(this));
       }
-    } else if (this.playTetris) {
+    } else if (key.ctrl && key.name === 'c') {
+      if (!playTetris) process.exit();
+    } else if (key.ctrl && key.name === 'g') {
+      setGameClock(this.titleTile, () => {
+        setGameGridContent();
+        launchGame(this.titleTile, this.highScore);
+      });
+    } else if (playTetris) {
       switch (key.name) {
         case 'left':
           this.nextFrame({left: true});
@@ -114,7 +124,7 @@ export default class TetrisEngine {
 
   private detectCollision(activeShape: Pixel) {
     const {x, y} = activeShape;
-    const grid = getGridContent();
+    const grid = gameGrid;
     const shape = activeShape.draw();
     for (let yVal = 0; yVal < shape!.length; yVal++) {
       const xRows = shape![yVal];
@@ -142,7 +152,7 @@ export default class TetrisEngine {
     const x = active!.x;
     const y = active!.y;
     const shape = active!.draw();
-    const grid = makeUnique(getGridContent());
+    const grid = makeUnique(gameGrid);
     for (let yVal = 0; yVal < shape.length; yVal++) {
       const xRows = shape[yVal];
       if (xRows)
@@ -160,7 +170,7 @@ export default class TetrisEngine {
 
   private checkScore() {
     const score: number[] = [];
-    let grid = makeUnique(getGridContent());
+    let grid = makeUnique(gameGrid);
     grid.forEach((row, i) => {
       if (i !== grid.length - 1 && !row.join('').includes(' ')) {
         score.push(i);
@@ -183,6 +193,11 @@ export default class TetrisEngine {
     const score = String(this.score).padStart(9, '0');
     return score.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   }
+  private getHighScore() {
+    if (this.score > this.highScore) this.highScore = this.score;
+    const score = String(this.highScore).padStart(9, '0');
+    return score.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
 
   private checkGameOver() {
     if (
@@ -190,34 +205,54 @@ export default class TetrisEngine {
       this.detectCollision(this.nextPiece)
     ) {
       refresh();
-      clearInterval(this.playTetris);
-      setGridContent(initializeGameGrid());
-      this.playTetris = undefined;
-      const game = `${this.titleTile}${NEW_LINE} Game Over. Press SPACE to restart or ESC to quit?`;
+      clearPlayTetris();
+      setGameGridContent();
+      const game = `${this.titleTile + NEW_LINE}GAME OVER!!!!!${
+        NEW_LINE + NEW_LINE + NEW_LINE + chalk.green('!')
+      } Press ${chalk.bgBlue(' ESC ')} to restart. ${
+        NEW_LINE + chalk.green('!')
+      } Press ${chalk.bgBlue(' CTRL+G ')} to change Game Clock. ${chalk.bgRed(
+        ' Requires Restart '
+      )}${NEW_LINE + chalk.green('!')} Press ${chalk.bgBlue(
+        ' CTRL+C '
+      )} twice to exit.`;
       print(game);
     }
   }
+
   private pauseGame() {
     refresh();
-    writeSaveFile();
-    clearInterval(this.playTetris);
-    this.playTetris = undefined;
+    clearPlayTetris();
+    writeSaveFile(this.highScore);
     const game = `${this.titleTile + NEW_LINE}GAME PAUSED!!!!!${
       NEW_LINE + NEW_LINE + NEW_LINE + chalk.green('!')
     } Press ${chalk.bgBlue(' ESC ')} to resume.${
       NEW_LINE + chalk.green('!')
-    } Press ${chalk.bgBlue(' CTRL+C ')} twice to exit.`;
+    } Press ${chalk.bgBlue(' CTRL+G ')} to change Game Clock. ${chalk.bgRed(
+      ' Requires Restart '
+    )}${NEW_LINE + chalk.green('!')} Press ${chalk.bgBlue(
+      ' CTRL+C '
+    )} twice to exit.`;
     print(game);
   }
 
-  private printFrame(gridC: string[][], cache?: boolean) {
+  private printFrame(gridParam: string[][], cache?: boolean) {
     refresh();
-    if (cache) setGridContent(gridC);
-    const gridContent = gridC.map((a, i) => {
-      const pivot = Math.floor(gridC.length / 2);
+    if (cache) setGameGridContent(gridParam);
+    const incoming = this.nextPiece.draw();
+    const gridContent = gridParam.map((a, i) => {
+      const pivot = Math.floor(gridParam.length / 2);
       let row = `--${a.join('')}-`;
       if (i === pivot - 10) {
         row += `      ${chalk.blue('INCOMING')}      --`;
+      } else if (incoming[0] && i === pivot - 8) {
+        row += this.printNextPiece(incoming[0]) + '--';
+      } else if (incoming[1] && i === pivot - 7) {
+        row += this.printNextPiece(incoming[1]) + '--';
+      } else if (incoming[2] && i === pivot - 6) {
+        row += this.printNextPiece(incoming[2]) + '--';
+      } else if (incoming[3] && i === pivot - 5) {
+        row += this.printNextPiece(incoming[3]) + '--';
       } else if (i === pivot - 1) {
         row += `       ${chalk.blue('SCORE')}        --`;
       } else if (i === pivot + 1) {
@@ -225,8 +260,8 @@ export default class TetrisEngine {
       } else if (i === pivot + 5) {
         row += `     ${chalk.blue('HIGH SCORE')}     --`;
       } else if (i === pivot + 7) {
-        row += `     ${this.getScore()}    --`;
-      } else if (i + 1 !== gridC.length) {
+        row += `     ${this.getHighScore()}    --`;
+      } else if (i + 1 !== gridParam.length) {
         row += '                    --';
       }
       return row;
@@ -246,5 +281,17 @@ export default class TetrisEngine {
       NEW_LINE + NEW_LINE
     }${game}`;
     print(game);
+  }
+
+  private printNextPiece(incoming: string[]) {
+    let row = '';
+    const val = incoming.join('');
+    let add = 20 - incoming.length;
+    row += add % 2 === 0 ? '' : ' ';
+    add = add % 2 !== 0 ? add - 1 : add;
+    add = add / 2;
+    const space = new Array(add);
+    space.fill(' ');
+    return row + space.join('') + val + space.join('');
   }
 }

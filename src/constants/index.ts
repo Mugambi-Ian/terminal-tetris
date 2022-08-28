@@ -10,24 +10,23 @@ import ZTetris from '../models/tetris-z.js';
 import rl from 'readline';
 import path from 'path';
 import fs from 'fs';
+import chalk from 'chalk';
+import {clear, log} from 'console';
 
-export const readLine = rl.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-export const ROWS = 26;
-export const COLS = 22;
-export const NEW_LINE = '\n';
-export const SCORE_WORTH = 10;
-export const GAME_CLOCK = 1000;
+const ROWS = 26;
+const COLS = 22;
+const NEW_LINE = '\n';
+let GAME_CLOCK = 1000;
+let gameGrid: string[][] = [];
 const SAVE_FILE = 'save.tetris';
-export const BLOCK_SIDE_LENGTH = 30;
+let game: TetrisEngine | undefined;
+let playTetris: NodeJS.Timeout | undefined;
 
-let grid: string[][] = [];
+export {GAME_CLOCK, ROWS, COLS, NEW_LINE, gameGrid, playTetris};
 
-export function start(titleTile: string) {
-  new TetrisEngine(titleTile);
+export function launchGame(title: string, highScore: number) {
+  if (game) game = undefined;
+  game = new TetrisEngine(title, highScore);
 }
 export function initializeGameGrid() {
   const rows: string[][] = [];
@@ -43,44 +42,88 @@ export function initializeGameGrid() {
   rows.push('---------------------------------------------'.split(''));
   return rows;
 }
-export function getGridContent() {
-  return grid;
+
+export function setGameGridContent(param?: string[][]) {
+  gameGrid = param ?? initializeGameGrid();
 }
-export function setGridContent(param?: string[][]) {
-  grid = param ?? initializeGameGrid();
+export function initPlayTetris(cb: () => void) {
+  playTetris = setInterval(cb, GAME_CLOCK);
 }
-export function readSaveFile(): string[][] | void {
+
+export function clearPlayTetris() {
+  clearInterval(playTetris);
+  playTetris = undefined;
+}
+export function setGameClock(title: string, cb: () => void) {
+  clear();
+  log(
+    `${title}${NEW_LINE}${chalk.green(
+      '!'
+    )} Current Game Clock is set to ${GAME_CLOCK}ms Press enter to proceed.${NEW_LINE}${chalk.green(
+      '!'
+    )} To change this enter any interger greater than ${chalk.bgWhite(
+      ' 10 '
+    )}${NEW_LINE}`
+  );
+  readLine.removeAllListeners();
+  readLine.question('Game Clock (ms): ', name => {
+    const val = parseInt(name);
+    if (val >= 10) {
+      GAME_CLOCK = val;
+    }
+    readLine.close();
+    clear();
+    cb();
+  });
+}
+export function readSaveFile(): {
+  highScore: number;
+  saveGame: string[][];
+} {
   const file = getSaveFile();
-  const save = fs.readFileSync(file, 'utf-8');
-  if (save) {
-    fs.writeFileSync(file, '');
-    return JSON.parse(save);
-  }
+  const save = JSON.parse(fs.readFileSync(file, 'utf-8'));
+  GAME_CLOCK = save.GAME_CLOCK;
+  clearSaveFile(save.highScore);
+  return save;
 }
+
 function getSaveFile(): string {
   let appDir = '';
   const plat = process.platform;
   const homeDir = `${process.env[plat === 'win32' ? 'USERPROFILE' : 'HOME']}`;
   if (plat === 'win32') {
-    appDir = path.join(homeDir, 'AppData', 'terminal-tetris');
+    appDir = path.join(homeDir, 'Documents', 'terminal-tetris');
   } else {
     appDir = path.join(homeDir, '.' + 'terminal-tetris');
   }
   if (!fs.existsSync(appDir + SAVE_FILE)) {
     fs.mkdirSync(appDir);
-    fs.writeFileSync(appDir + SAVE_FILE, '', 'utf8');
+    fs.writeFileSync(
+      appDir + SAVE_FILE,
+      JSON.stringify({highScore: 0, gameGrid: [], GAME_CLOCK}),
+      'utf8'
+    );
     return appDir + SAVE_FILE;
   }
   return appDir + SAVE_FILE;
 }
 
-export function writeSaveFile() {
+export function writeSaveFile(highScore: number) {
   const file = getSaveFile();
-  fs.writeFileSync(file, JSON.stringify(grid));
+  fs.writeFileSync(
+    file,
+    JSON.stringify({highScore, gameGrid, GAME_CLOCK}),
+    'utf-8'
+  );
 }
-export function clearSaveFile() {
+
+export function clearSaveFile(highScore: number) {
   const file = getSaveFile();
-  fs.writeFileSync(file, JSON.stringify(grid));
+  fs.writeFileSync(
+    file,
+    JSON.stringify({highScore, gameGrid: [], GAME_CLOCK}),
+    'utf-8'
+  );
 }
 
 export function bingo() {
@@ -138,3 +181,8 @@ export function replaceAll(str: string, find: string, replace: string): string {
 export function sleep(ms = 2000) {
   return new Promise(r => setTimeout(r, ms));
 }
+
+export const readLine = rl.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});

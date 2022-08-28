@@ -6,13 +6,13 @@ export default class ZTetris extends Pixel {
   override y = -1;
   override skin = chalk.magenta('#');
   override shape: number[][] = [
-    [1, 1],
+    [1, 1, 0],
     [0, 1, 1],
   ];
   override rotate(): void {
     if (this.shape.length === 3)
       this.shape = [
-        [1, 1],
+        [1, 1, 0],
         [0, 1, 1],
       ];
     else

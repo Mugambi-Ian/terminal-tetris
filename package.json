@@ -1,15 +1,34 @@
 {
-  "name": "NodeJS-Terminal-Template",
-  "version": "0.0.1",
-  "description": "A Template for Nodejs Terminal Application using TypeScript",
+  "name": "terminal-tetris",
+  "version": "1.0.2",
+  "description": "Tetris but on CLI.",
   "type": "module",
-  "exports": "./build/src/index.js",
+  "exports": "./build/index.js",
+  "main": "./build/cjs/index.js",
+  "module": "./build/index.js",
+  "types": "./build/esm/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Mugambi-Ian/NodeJS-Terminal-Template---TypeScript"
+    "url": "https://github.com/Mugambi-Ian/terminal-tetris"
+  },
+  "files": [
+    "build",
+    "LICENSE",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "chalk": "^4.1.2",
+    "chalk-animation": "^2.0.2",
+    "figlet": "^1.5.2",
+    "gradient-string": "^2.0.0",
+    "inquirer": "^9.1.0",
+    "nanospinner": "^1.0.0"
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "bin": {
+    "terminal-tetris": "node ./build/index.js"
   },
   "scripts": {
     "lint": "gts lint",
@@ -19,7 +38,10 @@
     "dev": "run-s build watch",
     "watch": "tsc-watch --noClear -p ./tsconfig.json --onSuccess \"node ./build/index.js\"",
     "clean": "gts clean",
-    "fix": "gts fix"
+    "fix": "gts fix",
+    "export": "run-s prebuild export:esm export:cjs",
+    "export:esm": "tsc",
+    "export:cjs": "tsc --module commonjs --outDir build/cjs"
   },
   "dependencies": {
     "chalk": "^4.1.2",

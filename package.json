@@ -1,34 +1,31 @@
 {
   "name": "terminal-tetris",
-  "version": "1.0.2",
-  "description": "Tetris but on CLI.",
-  "type": "module",
-  "exports": "./build/index.js",
-  "main": "./build/cjs/index.js",
+  "version": "2.5.0",
+  "description": "Tetris is a puzzle video game created by Soviet software engineer Alexey Pajitnov in 1984. This version of Tetris is developed to run on NodeJS using a CLI and distributed on NPM.",
+  "main": "./build/index.js",
   "module": "./build/index.js",
-  "types": "./build/esm/index.d.ts",
+  "types": "./build/index.d.ts",
   "repository": {
     "type": "git",
     "url": "https://github.com/Mugambi-Ian/terminal-tetris"
-  },
+  }, 
+  "keywords": [
+    "tetris",
+    "cli",
+    "terminal",
+    "terminal-tetris",
+    "cli-tetris"
+  ],
   "files": [
     "build",
     "LICENSE",
     "README.md"
   ],
-  "peerDependencies": {
-    "chalk": "^4.1.2",
-    "chalk-animation": "^2.0.2",
-    "figlet": "^1.5.2",
-    "gradient-string": "^2.0.0",
-    "inquirer": "^9.1.0",
-    "nanospinner": "^1.0.0"
-  },
   "engines": {
     "node": ">=14.0.0"
   },
   "bin": {
-    "terminal-tetris": "node ./build/index.js"
+    "terminal-tetris": "./build/index.js"
   },
   "scripts": {
     "lint": "gts lint",
@@ -39,9 +36,8 @@
     "watch": "tsc-watch --noClear -p ./tsconfig.json --onSuccess \"node ./build/index.js\"",
     "clean": "gts clean",
     "fix": "gts fix",
-    "export": "run-s prebuild export:esm export:cjs",
-    "export:esm": "tsc",
-    "export:cjs": "tsc --module commonjs --outDir build/cjs"
+    "export": "tsc",
+    "preexport": "npx rimraf build"
   },
   "dependencies": {
     "chalk": "^4.1.2",
@@ -49,11 +45,11 @@
     "figlet": "^1.5.2",
     "gradient-string": "^2.0.0",
     "inquirer": "^9.1.0",
-    "nanospinner": "^1.0.0"
+    "nanospinner": "^1.1.0"
   },
   "devDependencies": {
-    "@types/chalk-animation": "^1.6.1",
     "@types/figlet": "^1.5.4",
+    "@types/chalk-animation": "^1.6.1",
     "@types/gradient-string": "^1.1.2",
     "@types/inquirer": "^9.0.0",
     "@types/node": "^14.11.2",

@@ -1,5 +1,3 @@
-/* eslint-disable no-process-exit */
-import Pixel from '../models/tetris-pixel.js';
 import {
   bingo,
   NEW_LINE,
@@ -10,13 +8,13 @@ import {
   writeSaveFile,
   gameGrid,
   setGameGridContent,
-  setGameClock,
   readLine,
-  launchGame,
   initPlayTetris,
   playTetris,
   clearPlayTetris,
+  FOOTER,
 } from '../constants/index.js';
+import Pixel from '../models/tetris-pixel.js';
 import chalk from 'chalk';
 import {clear as refresh, log as print} from 'console';
 import readline from 'readline';
@@ -24,14 +22,19 @@ import readline from 'readline';
 export default class TetrisEngine {
   score = 0;
   highScore = 0;
+  highScoreCache = 0;
   active?: Pixel;
   titleTile = '';
   nextPiece = bingo();
 
-  constructor(titleTile = '', highScore: number) {
+  constructor(titleTile = '', highScore: number, score = 0) {
     this.inputListener();
     this.titleTile = titleTile;
     this.highScore = highScore;
+    this.highScoreCache = highScore;
+    this.score = score;
+    if (score > highScore) this.highScore = score;
+    this.renderFrames();
     initPlayTetris(this.renderFrames.bind(this));
   }
 
@@ -48,14 +51,9 @@ export default class TetrisEngine {
       else {
         initPlayTetris(this.renderFrames.bind(this));
       }
-    } else if (key.ctrl && key.name === 'c') {
-      if (!playTetris) process.exit();
-    } else if (key.ctrl && key.name === 'g') {
-      setGameClock(this.titleTile, () => {
-        setGameGridContent();
-        launchGame(this.titleTile, this.highScore);
-      });
-    } else if (playTetris) {
+      // eslint-disable-next-line no-process-exit
+    } else if (key.ctrl && key.name === 'c' && !playTetris) process.exit();
+    else if (playTetris) {
       switch (key.name) {
         case 'left':
           this.nextFrame({left: true});
@@ -207,15 +205,13 @@ export default class TetrisEngine {
       refresh();
       clearPlayTetris();
       setGameGridContent();
+      writeSaveFile(this.highScore);
+      this.score = 0;
       const game = `${this.titleTile + NEW_LINE}GAME OVER!!!!!${
         NEW_LINE + NEW_LINE + NEW_LINE + chalk.green('!')
       } Press ${chalk.bgBlue(' ESC ')} to restart. ${
         NEW_LINE + chalk.green('!')
-      } Press ${chalk.bgBlue(' CTRL+G ')} to change Game Clock. ${chalk.bgRed(
-        ' Requires Restart '
-      )}${NEW_LINE + chalk.green('!')} Press ${chalk.bgBlue(
-        ' CTRL+C '
-      )} twice to exit.`;
+      } Press ${chalk.bgBlue(' CTRL+C ')} twice to exit.${FOOTER()}`;
       print(game);
     }
   }
@@ -223,16 +219,12 @@ export default class TetrisEngine {
   private pauseGame() {
     refresh();
     clearPlayTetris();
-    writeSaveFile(this.highScore);
+    writeSaveFile(this.highScoreCache, `${this.score}`);
     const game = `${this.titleTile + NEW_LINE}GAME PAUSED!!!!!${
       NEW_LINE + NEW_LINE + NEW_LINE + chalk.green('!')
     } Press ${chalk.bgBlue(' ESC ')} to resume.${
       NEW_LINE + chalk.green('!')
-    } Press ${chalk.bgBlue(' CTRL+G ')} to change Game Clock. ${chalk.bgRed(
-      ' Requires Restart '
-    )}${NEW_LINE + chalk.green('!')} Press ${chalk.bgBlue(
-      ' CTRL+C '
-    )} twice to exit.`;
+    } Press ${chalk.bgBlue(' CTRL+C ')} twice to exit.${FOOTER()}`;
     print(game);
   }
 
@@ -279,7 +271,7 @@ export default class TetrisEngine {
       ' RIGHT '
     )} or ${chalk.bgBlue(' DOWN ')} to move tetronme.${
       NEW_LINE + NEW_LINE
-    }${game}`;
+    }${game}${FOOTER()}`;
     print(game);
   }
 

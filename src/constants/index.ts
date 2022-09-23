@@ -1,5 +1,4 @@
 import Pixel from '../models/tetris-pixel.js';
-import TetrisEngine from '../engine/index.js';
 import ITetris from '../models/tetris-i.js';
 import JTetris from '../models/tetris-j.js';
 import LTetris from '../models/tetris-l.js';
@@ -7,7 +6,7 @@ import OTetris from '../models/tetris-o.js';
 import STetris from '../models/tetris-s.js';
 import TTetris from '../models/tetris-t.js';
 import ZTetris from '../models/tetris-z.js';
-import rl from 'readline';
+import {createInterface} from 'readline';
 import path from 'path';
 import fs from 'fs';
 import chalk from 'chalk';
@@ -18,16 +17,15 @@ const COLS = 22;
 const NEW_LINE = '\n';
 let GAME_CLOCK = 1000;
 let gameGrid: string[][] = [];
-const SAVE_FILE = 'save.tetris';
-let game: TetrisEngine | undefined;
+const SAVE_FILE = '/save.tetris';
 let playTetris: NodeJS.Timeout | undefined;
+const readLine = createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
 
-export {GAME_CLOCK, ROWS, COLS, NEW_LINE, gameGrid, playTetris};
+export {GAME_CLOCK, ROWS, COLS, NEW_LINE, gameGrid, playTetris, readLine};
 
-export function launchGame(title: string, highScore: number) {
-  if (game) game = undefined;
-  game = new TetrisEngine(title, highScore);
-}
 export function initializeGameGrid() {
   const rows: string[][] = [];
   for (let y = 0; y < ROWS; y++) {
@@ -61,7 +59,7 @@ export function setGameClock(title: string, cb: () => void) {
       '!'
     )} Current Game Clock is set to ${GAME_CLOCK}ms Press enter to proceed.${NEW_LINE}${chalk.green(
       '!'
-    )} To change this enter any interger greater than ${chalk.bgWhite(
+    )} To change this enter any interger greater than ${chalk.bgGreen(
       ' 10 '
     )}${NEW_LINE}`
   );
@@ -77,8 +75,9 @@ export function setGameClock(title: string, cb: () => void) {
   });
 }
 export function readSaveFile(): {
+  score?: number;
   highScore: number;
-  saveGame: string[][];
+  gameGrid: string[][];
 } {
   const file = getSaveFile();
   const save = JSON.parse(fs.readFileSync(file, 'utf-8'));
@@ -108,13 +107,12 @@ function getSaveFile(): string {
   return appDir + SAVE_FILE;
 }
 
-export function writeSaveFile(highScore: number) {
+export function writeSaveFile(highScore?: number, score?: string) {
   const file = getSaveFile();
-  fs.writeFileSync(
-    file,
-    JSON.stringify({highScore, gameGrid, GAME_CLOCK}),
-    'utf-8'
-  );
+  let val = {};
+  if (score) val = {highScore, gameGrid, GAME_CLOCK, score};
+  else val = {highScore, gameGrid, GAME_CLOCK};
+  fs.writeFileSync(file, JSON.stringify(val), 'utf-8');
 }
 
 export function clearSaveFile(highScore: number) {
@@ -182,7 +180,17 @@ export function sleep(ms = 2000) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-export const readLine = rl.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+// eslint-disable-next-line no-useless-escape
+export const FOOTER = () => `
+${NEW_LINE}Game Clock Speed: ${chalk.bgGreen(
+  `  ${GAME_CLOCK}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' ms  '
+)}
+${NEW_LINE + NEW_LINE + NEW_LINE}Devoloped by ${chalk.bgYellow(
+  '  Ian Mugambi  '
+)}.${NEW_LINE + NEW_LINE}GitHub ${chalk.green(
+  'https://github.com/Mugambi-Ian'
+)}.${NEW_LINE}Project Repo ${chalk.green(
+  'https://github.com/Mugambi-Ian/terminal-tetris'
+)}.${NEW_LINE}Source Code Boilerplate ${chalk.green(
+  'https://github.com/Mugambi-Ian/NodeJS-CLI-App-Boilerplate---TypeScript'
+)} `;
